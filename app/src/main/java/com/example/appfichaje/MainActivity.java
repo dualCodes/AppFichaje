@@ -1,136 +1,144 @@
 package com.example.appfichaje;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.location.Location;
+import android.content.Intent;
+import android.nfc.NfcAdapter;
+import android.nfc.Tag;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.lifecycle.ViewModelProvider;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
 
-import com.example.appfichaje.databinding.ActivityMainBinding;
-import com.example.appfichaje.ui.main.FichajeViewModel;
-import com.example.appfichaje.ui.main.FichajeViewModelFactory;
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationServices;
+import com.example.appfichaje.ui.historial.HistorialFragment;
+import com.example.appfichaje.ui.incidencias.IncidenciasFragment;
+import com.example.appfichaje.ui.main.FichajeFragment;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
-    private ActivityMainBinding binding;
-    private FusedLocationProviderClient fusedLocationClient;
-    private FichajeViewModel fichajeViewModel;
+    private FichajeFragment fichajeFragment;
+    private HistorialFragment historialFragment;
+    private IncidenciasFragment incidenciasFragment;
+    private Fragment activeFragment;
 
-    private String currentAction = "";
+    private NfcAdapter nfcAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
+        setContentView(R.layout.activity_main);
 
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this);
 
-        FichajeViewModelFactory factory = new FichajeViewModelFactory(getApplication());
-        fichajeViewModel = new ViewModelProvider(this, factory).get(FichajeViewModel.class);
-
-        setupObservers();
-        setupClickListeners();
+        setupFragments();
+        setupBottomNavigation();
     }
 
-    private void setupClickListeners() {
-        binding.btnFicharEntrada.setOnClickListener(v -> {
-            currentAction = "entrada";
-            handleFichaje(currentAction);
-        });
-        binding.btnFicharSalida.setOnClickListener(v -> {
-            currentAction = "salida";
-            handleFichaje(currentAction);
-        });
+    private void setupFragments() {
+        fichajeFragment = new FichajeFragment();
+        historialFragment = new HistorialFragment();
+        incidenciasFragment = new IncidenciasFragment();
+
+        getSupportFragmentManager().beginTransaction()
+                .add(R.id.fragment_container, incidenciasFragment, "incidencias").hide(incidenciasFragment)
+                .add(R.id.fragment_container, historialFragment, "historial").hide(historialFragment)
+                .add(R.id.fragment_container, fichajeFragment, "fichaje")
+                .commit();
+
+        activeFragment = fichajeFragment;
     }
 
-    private void setupObservers() {
-        fichajeViewModel.getEntradaResult().observe(this, resource -> {
-            switch (resource.status) {
-                case LOADING:
-                    setLoading(true);
-                    binding.tvEstado.setText("Fichando entrada...");
-                    break;
-                case SUCCESS:
-                    setLoading(false);
-                    String msgEntrada = resource.data.getMensaje() + " a las " + resource.data.getHoraEntrada();
-                    binding.tvEstado.setText("Estado: " + msgEntrada);
-                    Toast.makeText(this, msgEntrada, Toast.LENGTH_LONG).show();
-                    break;
-                case ERROR:
-                    setLoading(false);
-                    binding.tvEstado.setText("Estado: " + resource.message);
-                    Toast.makeText(this, resource.message, Toast.LENGTH_LONG).show();
-                    break;
+    private void setupBottomNavigation() {
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        bottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.nav_fichaje) {
+                showFragment(fichajeFragment);
+                return true;
+            } else if (id == R.id.nav_historial) {
+                showFragment(historialFragment);
+                return true;
+            } else if (id == R.id.nav_incidencias) {
+                showFragment(incidenciasFragment);
+                return true;
             }
-        });
-
-        fichajeViewModel.getSalidaResult().observe(this, resource -> {
-            switch (resource.status) {
-                case LOADING:
-                    setLoading(true);
-                    binding.tvEstado.setText("Fichando salida...");
-                    break;
-                case SUCCESS:
-                    setLoading(false);
-                    String msgSalida = resource.data.getMensaje() + " a las " + resource.data.getHoraSalida();
-                    binding.tvEstado.setText("Estado: " + msgSalida);
-                    Toast.makeText(this, msgSalida, Toast.LENGTH_LONG).show();
-                    break;
-                case ERROR:
-                    setLoading(false);
-                    binding.tvEstado.setText("Estado: " + resource.message);
-                    Toast.makeText(this, resource.message, Toast.LENGTH_LONG).show();
-                    break;
-            }
+            return false;
         });
     }
 
-    private void handleFichaje(String tipo) {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
-            return;
-        }
-
-        fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
-            if (location != null) {
-                if (tipo.equals("entrada")) {
-                    fichajeViewModel.ficharEntrada(location.getLatitude(), location.getLongitude());
-                } else {
-                    fichajeViewModel.ficharSalida(location.getLatitude(), location.getLongitude());
-                }
-            } else {
-                Toast.makeText(MainActivity.this, "No se pudo obtener la ubicación. Activa el GPS y reintenta.", Toast.LENGTH_LONG).show();
-            }
-        });
-    }
-    
-    private void setLoading(boolean isLoading) {
-        binding.btnFicharEntrada.setEnabled(!isLoading);
-        binding.btnFicharSalida.setEnabled(!isLoading);
+    private void showFragment(Fragment fragment) {
+        getSupportFragmentManager().beginTransaction()
+                .hide(activeFragment)
+                .show(fragment)
+                .commit();
+        activeFragment = fragment;
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Permiso concedido. Puedes fichar.", Toast.LENGTH_SHORT).show();
-                if (!currentAction.isEmpty()) {
-                    handleFichaje(currentAction);
-                }
+    protected void onResume() {
+        super.onResume();
+        enableNfcForegroundDispatch();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        disableNfcForegroundDispatch();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleNfcIntent(intent);
+    }
+
+    private void enableNfcForegroundDispatch() {
+        if (nfcAdapter == null || !nfcAdapter.isEnabled()) return;
+        try {
+            android.app.PendingIntent pendingIntent = android.app.PendingIntent.getActivity(
+                    this, 0,
+                    new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                    android.app.PendingIntent.FLAG_MUTABLE);
+
+            android.content.IntentFilter[] filters = new android.content.IntentFilter[]{
+                    new android.content.IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED),
+                    new android.content.IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED),
+                    new android.content.IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED)
+            };
+
+            nfcAdapter.enableForegroundDispatch(this, pendingIntent, filters, null);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void disableNfcForegroundDispatch() {
+        if (nfcAdapter != null) {
+            try {
+                nfcAdapter.disableForegroundDispatch(this);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void handleNfcIntent(Intent intent) {
+        String action = intent.getAction();
+        if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)
+                || NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)
+                || NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)) {
+
+            // Forward NFC event to FichajeFragment if it is active
+            if (activeFragment instanceof FichajeFragment) {
+                ((FichajeFragment) activeFragment).onNfcTagDetected();
             } else {
-                Toast.makeText(this, "Permiso denegado. No se puede fichar.", Toast.LENGTH_LONG).show();
+                // Switch to fichaje tab and handle NFC
+                BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+                bottomNav.setSelectedItemId(R.id.nav_fichaje);
+                fichajeFragment.onNfcTagDetected();
             }
         }
     }
 }
+

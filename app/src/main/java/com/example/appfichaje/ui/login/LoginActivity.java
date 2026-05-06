@@ -38,8 +38,17 @@ public class LoginActivity extends AppCompatActivity {
                     if (data != null && data.getAccessToken() != null) {
                         // Save token
                         saveToken(data.getAccessToken());
+                        // Save user info
+                        if (data.getUsuario() != null) {
+                            com.example.appfichaje.utils.TokenManager.saveUserInfo(
+                                    this,
+                                    data.getUsuario().getId(),
+                                    data.getUsuario().getNombre(),
+                                    data.getUsuario().getRol()
+                            );
+                        }
                         // Navigate to MainActivity
-                        startActivity(new Intent(this, MainActivity.class));
+                        startActivity(new Intent(this, com.example.appfichaje.MainActivity.class));
                         finish();
                     } else {
                         Toast.makeText(this, "Respuesta de login inválida", Toast.LENGTH_SHORT).show();
@@ -49,7 +58,6 @@ public class LoginActivity extends AppCompatActivity {
                     Toast.makeText(this, loginResponseResource.message, Toast.LENGTH_SHORT).show();
                     break;
                 case LOADING:
-                    // Show a loading indicator if you have one
                     break;
             }
         });

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_fichaje"
+        android:icon="@drawable/ic_fichaje"
+        android:title="Fichaje" />
+
+    <item
+        android:id="@+id/nav_historial"
+        android:icon="@drawable/ic_historial"
+        android:title="Historial" />
+
+    <item
+        android:id="@+id/nav_incidencias"
+        android:icon="@drawable/ic_incidencias"
+        android:title="Incidencias" />
+
+</menu>
