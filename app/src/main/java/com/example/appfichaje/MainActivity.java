@@ -106,8 +106,11 @@ public class MainActivity extends AppCompatActivity {
                     new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                     android.app.PendingIntent.FLAG_MUTABLE);
 
+            // TAG_DISCOVERED captura cualquier etiqueta NFC con máxima prioridad,
+            // evitando que el sistema muestre "Servicio NFC" antes que la app.
+            // La validación del contenido NDEF se hace en handleNfcIntent.
             android.content.IntentFilter[] filters = new android.content.IntentFilter[]{
-                    new android.content.IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED)
+                    new android.content.IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED)
             };
 
             nfcAdapter.enableForegroundDispatch(this, pendingIntent, filters, null);
@@ -129,14 +132,18 @@ public class MainActivity extends AppCompatActivity {
     private static final String TEXTO_TARJETA_VALIDA = "fichaje";
 
     private void handleNfcIntent(Intent intent) {
-        if (!NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
+        String action = intent.getAction();
+        if (!NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)
+                && !NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)
+                && !NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)) {
             return;
         }
 
         // Leer los mensajes NDEF de la etiqueta, igual que en el ejemplo del profesor
         Parcelable[] rawMessages =
                 intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
-        if (rawMessages == null) {
+        if (rawMessages == null || rawMessages.length == 0) {
+            Toast.makeText(this, "Tarjeta NFC sin contenido válido", Toast.LENGTH_SHORT).show();
             return;
         }
 

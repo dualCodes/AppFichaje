@@ -1,6 +1,7 @@
 package com.example.appfichaje.ui.main;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -35,6 +36,8 @@ public class FichajeFragment extends Fragment {
     private FusedLocationProviderClient fusedLocationClient;
 
     private String currentGpsAction = "";
+    private String pendingNfcAction = null; // "entrada" o "salida"
+    private AlertDialog nfcWaitingDialog;
 
     private Button btnEntradaGps, btnSalidaGps, btnEntradaNfc, btnSalidaNfc, btnLogout;
     private TextView tvBienvenida, tvEstadoActual, tvHoraEntradaEstado, tvNfcStatus;
@@ -110,11 +113,8 @@ public class FichajeFragment extends Fragment {
             currentGpsAction = "salida";
             handleFichajeGps();
         });
-        // Los botones NFC solo informan al usuario; el fichaje real lo dispara la etiqueta NFC
-        btnEntradaNfc.setOnClickListener(v ->
-                Toast.makeText(requireContext(), "Acerca tu tarjeta NFC al lector para fichar entrada", Toast.LENGTH_SHORT).show());
-        btnSalidaNfc.setOnClickListener(v ->
-                Toast.makeText(requireContext(), "Acerca tu tarjeta NFC al lector para fichar salida", Toast.LENGTH_SHORT).show());
+        btnEntradaNfc.setOnClickListener(v -> showNfcWaitingDialog("entrada"));
+        btnSalidaNfc.setOnClickListener(v -> showNfcWaitingDialog("salida"));
         btnLogout.setOnClickListener(v -> logout());
     }
 
@@ -220,24 +220,47 @@ public class FichajeFragment extends Fragment {
         });
     }
 
+    private void showNfcWaitingDialog(String action) {
+        pendingNfcAction = action;
+        String mensaje = "entrada".equals(action)
+                ? "Acerca el móvil al lector NFC para fichar entrada"
+                : "Acerca el móvil al lector NFC para fichar salida";
+
+        nfcWaitingDialog = new AlertDialog.Builder(requireContext())
+                .setTitle("Fichaje NFC")
+                .setMessage(mensaje)
+                .setNegativeButton("Cancelar", (dialog, which) -> {
+                    pendingNfcAction = null;
+                    dialog.dismiss();
+                })
+                .setCancelable(true)
+                .setOnCancelListener(dialog -> pendingNfcAction = null)
+                .create();
+
+        nfcWaitingDialog.show();
+    }
+
     public void onNfcTagDetected() {
-        // Called from MainActivity when NFC tag is detected
-        // Auto-fichaje based on current estado
-        com.example.appfichaje.data.vo.Resource<EstadoResponse> estadoResource =
-                fichajeViewModel.getEstadoResult().getValue();
-        if (estadoResource != null && estadoResource.data != null) {
-            if (estadoResource.data.isDentro()) {
-                fichajeViewModel.ficharSalidaNfc();
-                Toast.makeText(requireContext(), "NFC detectado: fichando salida...", Toast.LENGTH_SHORT).show();
-            } else {
-                fichajeViewModel.ficharEntradaNfc();
-                Toast.makeText(requireContext(), "NFC detectado: fichando entrada...", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            // Default to entrada if estado unknown
-            fichajeViewModel.ficharEntradaNfc();
-            Toast.makeText(requireContext(), "NFC detectado: fichando entrada...", Toast.LENGTH_SHORT).show();
+        // Si no hay acción pendiente (no se pulsó ningún botón), ignorar
+        if (pendingNfcAction == null) {
+            Toast.makeText(requireContext(),
+                    "Usa los botones para iniciar el fichaje NFC", Toast.LENGTH_SHORT).show();
+            return;
         }
+
+        // Cerrar el diálogo de espera
+        if (nfcWaitingDialog != null && nfcWaitingDialog.isShowing()) {
+            nfcWaitingDialog.dismiss();
+            nfcWaitingDialog = null;
+        }
+
+        // Ejecutar la acción según el botón que se pulsó
+        if ("entrada".equals(pendingNfcAction)) {
+            fichajeViewModel.ficharEntradaNfc();
+        } else {
+            fichajeViewModel.ficharSalidaNfc();
+        }
+        pendingNfcAction = null;
     }
 
     private void handleFichajeGps() {
