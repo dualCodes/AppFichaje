@@ -110,8 +110,11 @@ public class FichajeFragment extends Fragment {
             currentGpsAction = "salida";
             handleFichajeGps();
         });
-        btnEntradaNfc.setOnClickListener(v -> fichajeViewModel.ficharEntradaNfc());
-        btnSalidaNfc.setOnClickListener(v -> fichajeViewModel.ficharSalidaNfc());
+        // Los botones NFC solo informan al usuario; el fichaje real lo dispara la etiqueta NFC
+        btnEntradaNfc.setOnClickListener(v ->
+                Toast.makeText(requireContext(), "Acerca tu tarjeta NFC al lector para fichar entrada", Toast.LENGTH_SHORT).show());
+        btnSalidaNfc.setOnClickListener(v ->
+                Toast.makeText(requireContext(), "Acerca tu tarjeta NFC al lector para fichar salida", Toast.LENGTH_SHORT).show());
         btnLogout.setOnClickListener(v -> logout());
     }
 
