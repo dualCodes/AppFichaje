@@ -1,9 +1,14 @@
 package com.example.appfichaje;
 
 import android.content.Intent;
+import android.nfc.NdefMessage;
+import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
-import android.nfc.Tag;
 import android.os.Bundle;
+import android.os.Parcelable;
+import android.widget.Toast;
+
+import java.nio.charset.StandardCharsets;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
@@ -102,9 +107,7 @@ public class MainActivity extends AppCompatActivity {
                     android.app.PendingIntent.FLAG_MUTABLE);
 
             android.content.IntentFilter[] filters = new android.content.IntentFilter[]{
-                    new android.content.IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED),
-                    new android.content.IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED),
-                    new android.content.IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED)
+                    new android.content.IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED)
             };
 
             nfcAdapter.enableForegroundDispatch(this, pendingIntent, filters, null);
@@ -123,22 +126,52 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void handleNfcIntent(Intent intent) {
-        String action = intent.getAction();
-        if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)
-                || NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)
-                || NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)) {
+    private static final String TEXTO_TARJETA_VALIDA = "fichaje";
 
-            // Forward NFC event to FichajeFragment if it is active
-            if (activeFragment instanceof FichajeFragment) {
-                ((FichajeFragment) activeFragment).onNfcTagDetected();
-            } else {
-                // Switch to fichaje tab and handle NFC
-                BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
-                bottomNav.setSelectedItemId(R.id.nav_fichaje);
-                fichajeFragment.onNfcTagDetected();
-            }
+    private void handleNfcIntent(Intent intent) {
+        if (!NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
+            return;
         }
+
+        // Leer los mensajes NDEF de la etiqueta, igual que en el ejemplo del profesor
+        Parcelable[] rawMessages =
+                intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
+        if (rawMessages == null) {
+            return;
+        }
+
+        NdefMessage[] messages = new NdefMessage[rawMessages.length];
+        for (int i = 0; i < rawMessages.length; i++) {
+            messages[i] = (NdefMessage) rawMessages[i];
+        }
+
+        NdefRecord record = messages[0].getRecords()[0];
+        String texto = leerTexto(record);
+
+        // Solo fichar si el texto de la tarjeta es el correcto
+        if (!TEXTO_TARJETA_VALIDA.equals(texto.trim())) {
+            Toast.makeText(this, "Tarjeta NFC no válida", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Tarjeta válida: notificar al fragmento de fichaje
+        if (activeFragment instanceof FichajeFragment) {
+            ((FichajeFragment) activeFragment).onNfcTagDetected();
+        } else {
+            BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+            bottomNav.setSelectedItemId(R.id.nav_fichaje);
+            fichajeFragment.onNfcTagDetected();
+        }
+    }
+
+    // Mismo método que usa el profesor para leer el texto de un registro NDEF
+    private String leerTexto(NdefRecord record) {
+        byte[] payload = record.getPayload();
+        int languageCodeLength = payload[0] & 0x3F;
+        return new String(payload,
+                languageCodeLength + 1,
+                payload.length - languageCodeLength - 1,
+                StandardCharsets.UTF_8);
     }
 }
 
