@@ -14,9 +14,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 
+import com.example.appfichaje.ui.admin.AdminFragment;
 import com.example.appfichaje.ui.historial.HistorialFragment;
 import com.example.appfichaje.ui.incidencias.IncidenciasFragment;
 import com.example.appfichaje.ui.main.FichajeFragment;
+import com.example.appfichaje.utils.TokenManager;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
@@ -24,6 +26,7 @@ public class MainActivity extends AppCompatActivity {
     private FichajeFragment fichajeFragment;
     private HistorialFragment historialFragment;
     private IncidenciasFragment incidenciasFragment;
+    private AdminFragment adminFragment;
     private Fragment activeFragment;
 
     private NfcAdapter nfcAdapter;
@@ -37,20 +40,29 @@ public class MainActivity extends AppCompatActivity {
 
         setupFragments();
         setupBottomNavigation();
+        setupAdminTab();
     }
 
     private void setupFragments() {
         fichajeFragment = new FichajeFragment();
         historialFragment = new HistorialFragment();
         incidenciasFragment = new IncidenciasFragment();
+        adminFragment = new AdminFragment();
 
         getSupportFragmentManager().beginTransaction()
+                .add(R.id.fragment_container, adminFragment, "admin").hide(adminFragment)
                 .add(R.id.fragment_container, incidenciasFragment, "incidencias").hide(incidenciasFragment)
                 .add(R.id.fragment_container, historialFragment, "historial").hide(historialFragment)
                 .add(R.id.fragment_container, fichajeFragment, "fichaje")
                 .commit();
 
         activeFragment = fichajeFragment;
+    }
+
+    private void setupAdminTab() {
+        String rol = TokenManager.getUserRol(this);
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        bottomNav.getMenu().findItem(R.id.nav_admin).setVisible("ADMIN".equalsIgnoreCase(rol));
     }
 
     private void setupBottomNavigation() {
@@ -65,6 +77,9 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             } else if (id == R.id.nav_incidencias) {
                 showFragment(incidenciasFragment);
+                return true;
+            } else if (id == R.id.nav_admin) {
+                showFragment(adminFragment);
                 return true;
             }
             return false;

@@ -1,8 +1,10 @@
 package com.example.appfichaje.ui.login;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.security.keystore.KeyGenParameterSpec;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -62,11 +64,49 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
+        loginViewModel.getCambioPasswordResult().observe(this, resource -> {
+            switch (resource.status) {
+                case SUCCESS:
+                    Toast.makeText(this,
+                            "Se ha enviado un correo con el enlace para cambiar la contraseña",
+                            Toast.LENGTH_LONG).show();
+                    break;
+                case ERROR:
+                    Toast.makeText(this, "Error: " + resource.message, Toast.LENGTH_LONG).show();
+                    break;
+                case LOADING:
+                    break;
+            }
+        });
+
         binding.loginButton.setOnClickListener(v -> {
             String email = binding.nifEmailEditText.getText().toString();
             String password = binding.passwordEditText.getText().toString();
             loginViewModel.login(email, password);
         });
+
+        binding.btnSolicitarCambioPassword.setOnClickListener(v -> showSolicitarCambioPasswordDialog());
+    }
+
+    private void showSolicitarCambioPasswordDialog() {
+        EditText etEmail = new EditText(this);
+        etEmail.setHint("Introduce tu email");
+        etEmail.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Solicitar cambio de contraseña")
+                .setMessage("Recibirás un correo con el enlace para establecer una nueva contraseña.")
+                .setView(etEmail)
+                .setPositiveButton("Enviar", (d, w) -> {
+                    String email = etEmail.getText().toString().trim();
+                    if (!email.isEmpty()) {
+                        loginViewModel.solicitarCambioPassword(email);
+                    } else {
+                        Toast.makeText(this, "Introduce un email válido", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     private void saveToken(String token) {
