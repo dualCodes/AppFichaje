@@ -51,6 +51,9 @@ dependencies {
     // Location
     implementation 'com.google.android.gms:play-services-location:21.3.0'
 
+    // Maps
+    implementation 'com.google.android.gms:play-services-maps:18.2.0'
+
     // Encrypted SharedPreferences
     implementation 'androidx.security:security-crypto:1.0.0'
 }

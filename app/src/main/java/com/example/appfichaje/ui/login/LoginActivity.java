@@ -3,18 +3,16 @@ package com.example.appfichaje.ui.login;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
-import android.security.keystore.KeyGenParameterSpec;
 import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.security.crypto.EncryptedSharedPreferences;
-import androidx.security.crypto.MasterKeys;
 
 import com.example.appfichaje.MainActivity;
 import com.example.appfichaje.data.model.LoginResponse;
 import com.example.appfichaje.databinding.ActivityLoginBinding;
+import com.example.appfichaje.utils.TokenManager;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -42,7 +40,7 @@ public class LoginActivity extends AppCompatActivity {
                         saveToken(data.getAccessToken());
                         // Save user info
                         if (data.getUsuario() != null) {
-                            com.example.appfichaje.utils.TokenManager.saveUserInfo(
+                            TokenManager.saveUserInfo(
                                     this,
                                     data.getUsuario().getId(),
                                     data.getUsuario().getNombre(),
@@ -110,22 +108,6 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void saveToken(String token) {
-        try {
-            KeyGenParameterSpec keyGenParameterSpec = MasterKeys.AES256_GCM_SPEC;
-            String mainKeyAlias = MasterKeys.getOrCreate(keyGenParameterSpec);
-
-            EncryptedSharedPreferences sharedPreferences = (EncryptedSharedPreferences) EncryptedSharedPreferences.create(
-                    "secret_shared_prefs",
-                    mainKeyAlias,
-                    this,
-                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            );
-
-            sharedPreferences.edit().putString("jwt_token", token).apply();
-
-        } catch (GeneralSecurityException | IOException e) {
-            e.printStackTrace();
-        }
+        TokenManager.saveToken(this, token);
     }
 }

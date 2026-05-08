@@ -22,9 +22,14 @@ import com.example.appfichaje.R;
 import com.example.appfichaje.data.model.EstadoResponse;
 import com.example.appfichaje.ui.login.LoginActivity;
 import com.example.appfichaje.utils.NotificationScheduler;
+import com.example.appfichaje.utils.TimeUtils;
 import com.example.appfichaje.utils.TokenManager;
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import com.google.android.material.card.MaterialCardView;
 
 public class FichajeFragment extends Fragment {
@@ -126,7 +131,7 @@ public class FichajeFragment extends Fragment {
                     tvEstadoActual.setText("Dentro");
                     tvEstadoActual.setTextColor(getResources().getColor(android.R.color.holo_green_dark, null));
                     if (estado.getHoraEntrada() != null) {
-                        tvHoraEntradaEstado.setText("Entrada: " + estado.getHoraEntrada());
+                        tvHoraEntradaEstado.setText("Entrada: " + TimeUtils.utcIsoToLocalTime(estado.getHoraEntrada()));
                         tvHoraEntradaEstado.setVisibility(View.VISIBLE);
                     }
                 } else {
@@ -145,7 +150,7 @@ public class FichajeFragment extends Fragment {
                 case SUCCESS:
                     setButtonsEnabled(true);
                     Toast.makeText(requireContext(),
-                            "Entrada registrada a las " + resource.data.getHoraEntrada(),
+                            "Entrada registrada a las " + TimeUtils.utcIsoToLocalTime(resource.data.getHoraEntrada()),
                             Toast.LENGTH_LONG).show();
                     break;
                 case ERROR:
@@ -181,7 +186,7 @@ public class FichajeFragment extends Fragment {
                 case SUCCESS:
                     setButtonsEnabled(true);
                     Toast.makeText(requireContext(),
-                            "Entrada NFC registrada a las " + resource.data.getHoraEntrada(),
+                            "Entrada NFC registrada a las " + TimeUtils.utcIsoToLocalTime(resource.data.getHoraEntrada()),
                             Toast.LENGTH_LONG).show();
                     break;
                 case ERROR:
@@ -274,17 +279,41 @@ public class FichajeFragment extends Fragment {
 
         fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
             if (location != null) {
-                if ("entrada".equals(currentGpsAction)) {
-                    fichajeViewModel.ficharEntrada(location.getLatitude(), location.getLongitude());
-                } else {
-                    fichajeViewModel.ficharSalida(location.getLatitude(), location.getLongitude());
-                }
+                ficharConUbicacion(location.getLatitude(), location.getLongitude());
             } else {
-                Toast.makeText(requireContext(),
-                        "No se pudo obtener la ubicación. Activa el GPS y reintenta.",
-                        Toast.LENGTH_LONG).show();
+                // Sin caché de ubicación: pedir una lectura fresca puntual
+                LocationRequest request = new LocationRequest.Builder(
+                        Priority.PRIORITY_HIGH_ACCURACY, 5000)
+                        .setMaxUpdates(1)
+                        .setWaitForAccurateLocation(false)
+                        .build();
+
+                fusedLocationClient.requestLocationUpdates(request,
+                        new LocationCallback() {
+                            @Override
+                            public void onLocationResult(@NonNull LocationResult result) {
+                                fusedLocationClient.removeLocationUpdates(this);
+                                if (!result.getLocations().isEmpty()) {
+                                    android.location.Location loc = result.getLocations().get(0);
+                                    ficharConUbicacion(loc.getLatitude(), loc.getLongitude());
+                                } else {
+                                    Toast.makeText(requireContext(),
+                                            "No se pudo obtener la ubicación. Activa el GPS y reintenta.",
+                                            Toast.LENGTH_LONG).show();
+                                }
+                            }
+                        },
+                        android.os.Looper.getMainLooper());
             }
         });
+    }
+
+    private void ficharConUbicacion(double lat, double lon) {
+        if ("entrada".equals(currentGpsAction)) {
+            fichajeViewModel.ficharEntrada(lat, lon);
+        } else {
+            fichajeViewModel.ficharSalida(lat, lon);
+        }
     }
 
     private void requestNotificationPermission() {
