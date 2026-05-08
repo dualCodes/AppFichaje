@@ -1,5 +1,5 @@
 # Sistema de Control de Presencia e Incidencias
-### PMDM + SGE 2026 — Entrega 1
+### PMDM + SGE 2026 — Entrega 2
 
 **Alumno:** Yasser Suliman Orange  
 
