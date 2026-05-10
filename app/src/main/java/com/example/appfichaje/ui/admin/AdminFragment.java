@@ -24,20 +24,19 @@ import com.example.appfichaje.data.model.CentroTrabajoResponse;
 import com.example.appfichaje.data.model.TrabajadorLista;
 import com.example.appfichaje.data.vo.Resource;
 import com.example.appfichaje.ui.historial.RegistroAdapter;
-import com.google.android.gms.maps.CameraUpdateFactory;
-import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.OnMapReadyCallback;
-import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.CircleOptions;
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MarkerOptions;
+import org.osmdroid.config.Configuration;
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.util.GeoPoint;
+import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.Marker;
+import org.osmdroid.views.overlay.Polygon;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
 
-public class AdminFragment extends Fragment implements OnMapReadyCallback {
+public class AdminFragment extends Fragment {
 
     private AdminViewModel adminViewModel;
     private EmpleadoAdapter empleadoAdapter;
@@ -49,7 +48,7 @@ public class AdminFragment extends Fragment implements OnMapReadyCallback {
     private TextView tvEmpleadosEmpty, tvRadioActual, tvCentroNombre, tvCentroCoords;
     private Button btnEditarRadio;
 
-    private GoogleMap googleMap;
+    private MapView mapView;
     private CentroTrabajoResponse centroActual;
 
     // Referencias al diálogo activo de registros
@@ -90,7 +89,7 @@ public class AdminFragment extends Fragment implements OnMapReadyCallback {
 
         setupObservers();
         setupToggle();
-        setupMap();
+        setupMap(view);
 
         btnEditarRadio.setOnClickListener(v -> showEditarRadioDialog());
 
@@ -193,46 +192,59 @@ public class AdminFragment extends Fragment implements OnMapReadyCallback {
             tvCentroCoords.setText("Coordenadas no configuradas");
         }
         tvRadioActual.setText("Radio: " + (centro.getRadio() != null ? centro.getRadio() : "--") + " m");
-        if (googleMap != null) {
-            updateMap(centro);
-        }
+        updateMap(centro);
     }
 
     private void updateMap(CentroTrabajoResponse centro) {
-        if (centro.getLat() == null || centro.getLon() == null) return;
-        googleMap.clear();
-        LatLng latLng = new LatLng(centro.getLat(), centro.getLon());
-        googleMap.addMarker(new MarkerOptions().position(latLng).title("Centro de trabajo"));
+        if (mapView == null || centro.getLat() == null || centro.getLon() == null) return;
+        mapView.getOverlays().clear();
+        GeoPoint geoPoint = new GeoPoint(centro.getLat(), centro.getLon());
+
+        Marker marker = new Marker(mapView);
+        marker.setPosition(geoPoint);
+        marker.setTitle("Centro de trabajo");
+        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        mapView.getOverlays().add(marker);
+
         if (centro.getRadio() != null && centro.getRadio() > 0) {
-            googleMap.addCircle(new CircleOptions()
-                    .center(latLng)
-                    .radius(centro.getRadio())
-                    .strokeColor(0xFF1976D2)
-                    .fillColor(0x221976D2)
-                    .strokeWidth(2f));
+            Polygon circle = new Polygon();
+            circle.setPoints(Polygon.pointsAsCircle(geoPoint, centro.getRadio()));
+            circle.setStrokeColor(0xFF1976D2);
+            circle.setFillColor(0x221976D2);
+            circle.setStrokeWidth(2f);
+            mapView.getOverlays().add(circle);
         }
-        googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f));
+
+        mapView.getController().setZoom(15.0);
+        mapView.getController().setCenter(geoPoint);
+        mapView.invalidate();
     }
 
-    private void setupMap() {
-        SupportMapFragment mapFragment = (SupportMapFragment)
-                getChildFragmentManager().findFragmentById(R.id.map_container);
-        if (mapFragment == null) {
-            mapFragment = SupportMapFragment.newInstance();
-            getChildFragmentManager().beginTransaction()
-                    .replace(R.id.map_container, mapFragment)
-                    .commit();
-        }
-        mapFragment.getMapAsync(this);
+    private void setupMap(View view) {
+        Configuration.getInstance().setUserAgentValue(requireContext().getPackageName());
+        mapView = view.findViewById(R.id.map_container);
+        mapView.setTileSource(TileSourceFactory.MAPNIK);
+        mapView.setMultiTouchControls(true);
+        mapView.getController().setZoom(15.0);
     }
 
     @Override
-    public void onMapReady(@NonNull GoogleMap map) {
-        googleMap = map;
-        googleMap.getUiSettings().setZoomControlsEnabled(true);
-        if (centroActual != null) {
-            updateMap(centroActual);
-        }
+    public void onResume() {
+        super.onResume();
+        if (mapView != null) mapView.onResume();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (mapView != null) mapView.onPause();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (mapView != null) mapView.onDetach();
+        mapView = null;
     }
 
     private void showRegistrosDialog(TrabajadorLista empleado) {

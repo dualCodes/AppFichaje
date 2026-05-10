@@ -1,8 +1,10 @@
 package com.example.appfichaje.ui.main;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -17,6 +19,10 @@ import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+
+import com.google.android.gms.common.api.ResolvableApiException;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.SettingsClient;
 
 import com.example.appfichaje.R;
 import com.example.appfichaje.data.model.EstadoResponse;
@@ -36,6 +42,7 @@ public class FichajeFragment extends Fragment {
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
     private static final int NOTIF_PERMISSION_REQUEST_CODE = 2;
+    private static final int LOCATION_SETTINGS_REQUEST_CODE = 3;
 
     private FichajeViewModel fichajeViewModel;
     private FusedLocationProviderClient fusedLocationClient;
@@ -277,18 +284,46 @@ public class FichajeFragment extends Fragment {
             return;
         }
 
+        LocationRequest locationRequest = new LocationRequest.Builder(
+                Priority.PRIORITY_HIGH_ACCURACY, 5000)
+                .setMaxUpdates(1)
+                .setWaitForAccurateLocation(false)
+                .build();
+
+        LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
+                .addLocationRequest(locationRequest)
+                .build();
+
+        SettingsClient settingsClient = LocationServices.getSettingsClient(requireContext());
+        settingsClient.checkLocationSettings(settingsRequest)
+                .addOnSuccessListener(response -> obtenerUbicacionYFichar(locationRequest))
+                .addOnFailureListener(e -> {
+                    if (e instanceof ResolvableApiException) {
+                        // El GPS está apagado: mostrar diálogo nativo para activarlo
+                        try {
+                            startIntentSenderForResult(
+                                    ((ResolvableApiException) e).getResolution().getIntentSender(),
+                                    LOCATION_SETTINGS_REQUEST_CODE,
+                                    null, 0, 0, 0, null);
+                        } catch (IntentSender.SendIntentException sendEx) {
+                            Toast.makeText(requireContext(),
+                                    "No se pudo abrir la configuración de GPS",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    } else {
+                        Toast.makeText(requireContext(),
+                                "GPS no disponible en este dispositivo",
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    private void obtenerUbicacionYFichar(LocationRequest locationRequest) {
         fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
             if (location != null) {
                 ficharConUbicacion(location.getLatitude(), location.getLongitude());
             } else {
-                // Sin caché de ubicación: pedir una lectura fresca puntual
-                LocationRequest request = new LocationRequest.Builder(
-                        Priority.PRIORITY_HIGH_ACCURACY, 5000)
-                        .setMaxUpdates(1)
-                        .setWaitForAccurateLocation(false)
-                        .build();
-
-                fusedLocationClient.requestLocationUpdates(request,
+                fusedLocationClient.requestLocationUpdates(locationRequest,
                         new LocationCallback() {
                             @Override
                             public void onLocationResult(@NonNull LocationResult result) {
@@ -298,7 +333,7 @@ public class FichajeFragment extends Fragment {
                                     ficharConUbicacion(loc.getLatitude(), loc.getLongitude());
                                 } else {
                                     Toast.makeText(requireContext(),
-                                            "No se pudo obtener la ubicación. Activa el GPS y reintenta.",
+                                            "No se pudo obtener la ubicación. Reintenta.",
                                             Toast.LENGTH_LONG).show();
                                 }
                             }
@@ -340,6 +375,21 @@ public class FichajeFragment extends Fragment {
         Intent intent = new Intent(requireContext(), LoginActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == LOCATION_SETTINGS_REQUEST_CODE) {
+            if (resultCode == Activity.RESULT_OK) {
+                // El usuario activó el GPS: reintentar
+                handleFichajeGps();
+            } else {
+                Toast.makeText(requireContext(),
+                        "El GPS debe estar activo para fichar por ubicación",
+                        Toast.LENGTH_LONG).show();
+            }
+        }
     }
 
     @Override

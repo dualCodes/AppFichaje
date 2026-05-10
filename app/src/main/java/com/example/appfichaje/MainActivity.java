@@ -62,7 +62,7 @@ public class MainActivity extends AppCompatActivity {
     private void setupAdminTab() {
         String rol = TokenManager.getUserRol(this);
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
-        bottomNav.getMenu().findItem(R.id.nav_admin).setVisible("ADMIN".equalsIgnoreCase(rol));
+        bottomNav.getMenu().findItem(R.id.nav_admin).setVisible("Administrador".equalsIgnoreCase(rol));
     }
 
     private void setupBottomNavigation() {
