@@ -299,19 +299,54 @@ public class AdminFragment extends Fragment {
     }
 
     private void showEditarRadioDialog() {
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad, pad, 0);
+
         EditText etRadio = new EditText(requireContext());
+        etRadio.setHint("Radio (metros)");
         etRadio.setInputType(InputType.TYPE_CLASS_NUMBER);
         if (centroActual != null && centroActual.getRadio() != null) {
             etRadio.setText(String.valueOf(centroActual.getRadio()));
         }
 
+        EditText etLat = new EditText(requireContext());
+        etLat.setHint("Latitud");
+        etLat.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
+        if (centroActual != null && centroActual.getLat() != null) {
+            etLat.setText(String.valueOf(centroActual.getLat()));
+        }
+
+        EditText etLon = new EditText(requireContext());
+        etLon.setHint("Longitud");
+        etLon.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
+        if (centroActual != null && centroActual.getLon() != null) {
+            etLon.setText(String.valueOf(centroActual.getLon()));
+        }
+
+        layout.addView(etRadio);
+        layout.addView(etLat);
+        layout.addView(etLon);
+
         new AlertDialog.Builder(requireContext())
-                .setTitle("Editar radio (metros)")
-                .setView(etRadio)
+                .setTitle("Editar centro de trabajo")
+                .setView(layout)
                 .setPositiveButton("Guardar", (d, w) -> {
-                    String val = etRadio.getText().toString().trim();
-                    if (!val.isEmpty()) {
-                        adminViewModel.actualizarRadio(Integer.parseInt(val));
+                    String valRadio = etRadio.getText().toString().trim();
+                    String valLat   = etLat.getText().toString().trim();
+                    String valLon   = etLon.getText().toString().trim();
+                    if (valRadio.isEmpty()) {
+                        Toast.makeText(requireContext(), "El radio no puede estar vacío", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    try {
+                        int radio = Integer.parseInt(valRadio);
+                        Double lat = valLat.isEmpty() ? null : Double.parseDouble(valLat);
+                        Double lon = valLon.isEmpty() ? null : Double.parseDouble(valLon);
+                        adminViewModel.actualizarRadio(radio, lat, lon);
+                    } catch (NumberFormatException e) {
+                        Toast.makeText(requireContext(), "Valores numéricos inválidos", Toast.LENGTH_SHORT).show();
                     }
                 })
                 .setNegativeButton("Cancelar", null)

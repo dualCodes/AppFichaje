@@ -32,7 +32,7 @@ public class AdminRepository {
         return apiService.getCentroTrabajo();
     }
 
-    public Call<GenericResponse> actualizarRadio(int radioMetros) {
-        return apiService.actualizarRadio(new ActualizarRadioRequest(radioMetros));
+    public Call<GenericResponse> actualizarRadio(int radioMetros, Double lat, Double lon) {
+        return apiService.actualizarRadio(new ActualizarRadioRequest(radioMetros, lat, lon));
     }
 }

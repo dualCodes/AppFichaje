@@ -92,9 +92,9 @@ public class AdminViewModel extends ViewModel {
         });
     }
 
-    public void actualizarRadio(int radioMetros) {
+    public void actualizarRadio(int radioMetros, Double lat, Double lon) {
         actualizarRadioResult.setValue(Resource.loading(null));
-        adminRepository.actualizarRadio(radioMetros).enqueue(new Callback<GenericResponse>() {
+        adminRepository.actualizarRadio(radioMetros, lat, lon).enqueue(new Callback<GenericResponse>() {
             @Override
             public void onResponse(Call<GenericResponse> call, Response<GenericResponse> response) {
                 if (response.isSuccessful()) {
