@@ -83,13 +83,27 @@
                     android:textStyle="bold"
                     android:layout_marginBottom="12dp" />
 
-                <Button
-                    android:id="@+id/btn_fichaje_gps"
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="#2E7D32"
-                    android:text="Fichar Entrada GPS"
-                    android:textColor="@android:color/white" />
+                    android:layout_height="wrap_content">
+
+                    <Button
+                        android:id="@+id/btn_fichaje_gps"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="#2E7D32"
+                        android:text="Fichar Entrada GPS"
+                        android:textColor="@android:color/white" />
+
+                    <ProgressBar
+                        android:id="@+id/progress_btn_gps"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_gravity="center"
+                        android:indeterminateTint="@android:color/white"
+                        android:visibility="gone" />
+
+                </FrameLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -126,13 +140,27 @@
                     android:textSize="13sp"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
-                <Button
-                    android:id="@+id/btn_fichaje_nfc"
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="#1565C0"
-                    android:text="Fichar Entrada NFC"
-                    android:textColor="@android:color/white" />
+                    android:layout_height="wrap_content">
+
+                    <Button
+                        android:id="@+id/btn_fichaje_nfc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="#1565C0"
+                        android:text="Fichar Entrada NFC"
+                        android:textColor="@android:color/white" />
+
+                    <ProgressBar
+                        android:id="@+id/progress_btn_nfc"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_gravity="center"
+                        android:indeterminateTint="@android:color/white"
+                        android:visibility="gone" />
+
+                </FrameLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

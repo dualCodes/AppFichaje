@@ -68,6 +68,7 @@ public class FichajeFragment extends Fragment {
     private AlertDialog nfcWaitingDialog;
 
     private Button btnFichajeGps, btnFichajeNfc, btnLogout;
+    private android.widget.ProgressBar progressBtnGps, progressBtnNfc;
     private TextView tvBienvenida, tvEstadoActual, tvHoraEntradaEstado, tvNfcStatus;
     private MaterialCardView cardNfc;
 
@@ -85,6 +86,8 @@ public class FichajeFragment extends Fragment {
         btnFichajeGps = view.findViewById(R.id.btn_fichaje_gps);
         btnFichajeNfc = view.findViewById(R.id.btn_fichaje_nfc);
         btnLogout = view.findViewById(R.id.btn_logout);
+        progressBtnGps = view.findViewById(R.id.progress_btn_gps);
+        progressBtnNfc = view.findViewById(R.id.progress_btn_nfc);
         tvBienvenida = view.findViewById(R.id.tv_bienvenida);
         tvEstadoActual = view.findViewById(R.id.tv_estado_actual);
         tvHoraEntradaEstado = view.findViewById(R.id.tv_hora_entrada_estado);
@@ -173,16 +176,16 @@ public class FichajeFragment extends Fragment {
         fichajeViewModel.getEntradaResult().observe(getViewLifecycleOwner(), resource -> {
             switch (resource.status) {
                 case LOADING:
-                    setButtonsEnabled(false);
+                    setGpsLoading(true);
                     break;
                 case SUCCESS:
-                    setButtonsEnabled(true);
+                    setGpsLoading(false);
                     Toast.makeText(requireContext(),
                             "Entrada registrada a las " + TimeUtils.utcIsoToLocalTime(resource.data.getHoraEntrada()),
                             Toast.LENGTH_LONG).show();
                     break;
                 case ERROR:
-                    setButtonsEnabled(true);
+                    setGpsLoading(false);
                     Toast.makeText(requireContext(), resource.message, Toast.LENGTH_LONG).show();
                     break;
             }
@@ -191,16 +194,16 @@ public class FichajeFragment extends Fragment {
         fichajeViewModel.getSalidaResult().observe(getViewLifecycleOwner(), resource -> {
             switch (resource.status) {
                 case LOADING:
-                    setButtonsEnabled(false);
+                    setGpsLoading(true);
                     break;
                 case SUCCESS:
-                    setButtonsEnabled(true);
+                    setGpsLoading(false);
                     Toast.makeText(requireContext(),
                             "Salida registrada. Duración: " + resource.data.getDuracionMinutos() + " min",
                             Toast.LENGTH_LONG).show();
                     break;
                 case ERROR:
-                    setButtonsEnabled(true);
+                    setGpsLoading(false);
                     Toast.makeText(requireContext(), resource.message, Toast.LENGTH_LONG).show();
                     break;
             }
@@ -209,16 +212,16 @@ public class FichajeFragment extends Fragment {
         fichajeViewModel.getEntradaNfcResult().observe(getViewLifecycleOwner(), resource -> {
             switch (resource.status) {
                 case LOADING:
-                    setButtonsEnabled(false);
+                    setNfcLoading(true);
                     break;
                 case SUCCESS:
-                    setButtonsEnabled(true);
+                    setNfcLoading(false);
                     Toast.makeText(requireContext(),
                             "Entrada NFC registrada a las " + TimeUtils.utcIsoToLocalTime(resource.data.getHoraEntrada()),
                             Toast.LENGTH_LONG).show();
                     break;
                 case ERROR:
-                    setButtonsEnabled(true);
+                    setNfcLoading(false);
                     Toast.makeText(requireContext(), resource.message, Toast.LENGTH_LONG).show();
                     break;
             }
@@ -227,16 +230,16 @@ public class FichajeFragment extends Fragment {
         fichajeViewModel.getSalidaNfcResult().observe(getViewLifecycleOwner(), resource -> {
             switch (resource.status) {
                 case LOADING:
-                    setButtonsEnabled(false);
+                    setNfcLoading(true);
                     break;
                 case SUCCESS:
-                    setButtonsEnabled(true);
+                    setNfcLoading(false);
                     Toast.makeText(requireContext(),
                             "Salida NFC registrada. Duración: " + resource.data.getDuracionMinutos() + " min",
                             Toast.LENGTH_LONG).show();
                     break;
                 case ERROR:
-                    setButtonsEnabled(true);
+                    setNfcLoading(false);
                     Toast.makeText(requireContext(), resource.message, Toast.LENGTH_LONG).show();
                     break;
             }
@@ -398,9 +401,28 @@ public class FichajeFragment extends Fragment {
         }
     }
 
-    private void setButtonsEnabled(boolean enabled) {
-        btnFichajeGps.setEnabled(enabled);
-        btnFichajeNfc.setEnabled(enabled);
+    private void setGpsLoading(boolean loading) {
+        btnFichajeGps.setEnabled(!loading);
+        btnFichajeNfc.setEnabled(!loading);
+        if (loading) {
+            btnFichajeGps.setText("");
+            progressBtnGps.setVisibility(View.VISIBLE);
+        } else {
+            progressBtnGps.setVisibility(View.GONE);
+            updateFichajeButtons(dentroActual);
+        }
+    }
+
+    private void setNfcLoading(boolean loading) {
+        btnFichajeGps.setEnabled(!loading);
+        btnFichajeNfc.setEnabled(!loading);
+        if (loading) {
+            btnFichajeNfc.setText("");
+            progressBtnNfc.setVisibility(View.VISIBLE);
+        } else {
+            progressBtnNfc.setVisibility(View.GONE);
+            updateFichajeButtons(dentroActual);
+        }
     }
 
     private void logout() {

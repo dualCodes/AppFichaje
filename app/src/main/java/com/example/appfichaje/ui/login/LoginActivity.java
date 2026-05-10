@@ -35,12 +35,14 @@ public class LoginActivity extends AppCompatActivity {
         loginViewModel.getLoginResult().observe(this, loginResponseResource -> {
             switch (loginResponseResource.status) {
                 case LOADING:
+                    binding.loginButton.setText("");
                     binding.progressLogin.setVisibility(View.VISIBLE);
                     binding.loginButton.setEnabled(false);
                     break;
                 case SUCCESS:
                     binding.progressLogin.setVisibility(View.GONE);
                     binding.loginButton.setEnabled(true);
+                    binding.loginButton.setText("Iniciar Sesión");
                     LoginResponse data = loginResponseResource.data;
                     if (data != null && data.getAccessToken() != null) {
                         // Save token
@@ -64,6 +66,7 @@ public class LoginActivity extends AppCompatActivity {
                 case ERROR:
                     binding.progressLogin.setVisibility(View.GONE);
                     binding.loginButton.setEnabled(true);
+                    binding.loginButton.setText("Iniciar Sesión");
                     Toast.makeText(this, loginResponseResource.message, Toast.LENGTH_SHORT).show();
                     break;
             }
