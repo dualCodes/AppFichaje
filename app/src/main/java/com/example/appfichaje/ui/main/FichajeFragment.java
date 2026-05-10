@@ -3,10 +3,15 @@ package com.example.appfichaje.ui.main;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
+import android.nfc.NfcAdapter;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -46,12 +51,23 @@ public class FichajeFragment extends Fragment {
 
     private FichajeViewModel fichajeViewModel;
     private FusedLocationProviderClient fusedLocationClient;
+    private NfcAdapter nfcAdapter;
+
+    private final BroadcastReceiver nfcStateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (NfcAdapter.ACTION_ADAPTER_STATE_CHANGED.equals(intent.getAction())) {
+                checkNfcAvailability();
+            }
+        }
+    };
 
     private String currentGpsAction = "";
     private String pendingNfcAction = null; // "entrada" o "salida"
+    private boolean dentroActual = false;
     private AlertDialog nfcWaitingDialog;
 
-    private Button btnEntradaGps, btnSalidaGps, btnEntradaNfc, btnSalidaNfc, btnLogout;
+    private Button btnFichajeGps, btnFichajeNfc, btnLogout;
     private TextView tvBienvenida, tvEstadoActual, tvHoraEntradaEstado, tvNfcStatus;
     private MaterialCardView cardNfc;
 
@@ -66,10 +82,8 @@ public class FichajeFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        btnEntradaGps = view.findViewById(R.id.btn_entrada_gps);
-        btnSalidaGps = view.findViewById(R.id.btn_salida_gps);
-        btnEntradaNfc = view.findViewById(R.id.btn_entrada_nfc);
-        btnSalidaNfc = view.findViewById(R.id.btn_salida_nfc);
+        btnFichajeGps = view.findViewById(R.id.btn_fichaje_gps);
+        btnFichajeNfc = view.findViewById(R.id.btn_fichaje_nfc);
         btnLogout = view.findViewById(R.id.btn_logout);
         tvBienvenida = view.findViewById(R.id.tv_bienvenida);
         tvEstadoActual = view.findViewById(R.id.tv_estado_actual);
@@ -101,32 +115,38 @@ public class FichajeFragment extends Fragment {
         android.nfc.NfcManager nfcManager =
                 (android.nfc.NfcManager) requireContext().getSystemService(android.content.Context.NFC_SERVICE);
         if (nfcManager != null) {
-            android.nfc.NfcAdapter nfcAdapter = nfcManager.getDefaultAdapter();
+            nfcAdapter = nfcManager.getDefaultAdapter();
             if (nfcAdapter == null) {
                 tvNfcStatus.setText("Este dispositivo no tiene NFC");
-                btnEntradaNfc.setEnabled(false);
-                btnSalidaNfc.setEnabled(false);
+                btnFichajeNfc.setEnabled(false);
             } else if (!nfcAdapter.isEnabled()) {
-                tvNfcStatus.setText("NFC desactivado. Actívalo en Ajustes.");
-                btnEntradaNfc.setEnabled(false);
-                btnSalidaNfc.setEnabled(false);
+                tvNfcStatus.setText("NFC desactivado. Pulsa el botón para activarlo.");
+                btnFichajeNfc.setEnabled(true); // habilitado para mostrar diálogo
             } else {
-                tvNfcStatus.setText("NFC activo. Acerca el teléfono al lector NFC o usa los botones.");
+                tvNfcStatus.setText("NFC activo. Acerca el teléfono al lector NFC o usa el botón.");
+                btnFichajeNfc.setEnabled(true);
             }
         }
     }
 
     private void setupClickListeners() {
-        btnEntradaGps.setOnClickListener(v -> {
-            currentGpsAction = "entrada";
+        btnFichajeGps.setOnClickListener(v -> {
+            currentGpsAction = dentroActual ? "salida" : "entrada";
             handleFichajeGps();
         });
-        btnSalidaGps.setOnClickListener(v -> {
-            currentGpsAction = "salida";
-            handleFichajeGps();
+        btnFichajeNfc.setOnClickListener(v -> {
+            if (nfcAdapter != null && !nfcAdapter.isEnabled()) {
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("NFC desactivado")
+                        .setMessage("Para fichar por NFC necesitas activarlo. ¿Abrir ajustes de NFC?")
+                        .setPositiveButton("Abrir ajustes", (d, w) ->
+                                startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS)))
+                        .setNegativeButton("Cancelar", null)
+                        .show();
+                return;
+            }
+            showNfcWaitingDialog(dentroActual ? "salida" : "entrada");
         });
-        btnEntradaNfc.setOnClickListener(v -> showNfcWaitingDialog("entrada"));
-        btnSalidaNfc.setOnClickListener(v -> showNfcWaitingDialog("salida"));
         btnLogout.setOnClickListener(v -> logout());
     }
 
@@ -134,6 +154,7 @@ public class FichajeFragment extends Fragment {
         fichajeViewModel.getEstadoResult().observe(getViewLifecycleOwner(), resource -> {
             if (resource.data != null) {
                 EstadoResponse estado = resource.data;
+                updateFichajeButtons(estado.isDentro());
                 if (estado.isDentro()) {
                     tvEstadoActual.setText("Dentro");
                     tvEstadoActual.setTextColor(getResources().getColor(android.R.color.holo_green_dark, null));
@@ -230,6 +251,21 @@ public class FichajeFragment extends Fragment {
                 NotificationScheduler.scheduleReminders(requireContext(), resource.data.getFranjas());
             }
         });
+    }
+
+    private void updateFichajeButtons(boolean dentro) {
+        dentroActual = dentro;
+        if (dentro) {
+            btnFichajeGps.setText("Fichar Salida GPS");
+            btnFichajeGps.setBackgroundTintList(
+                    android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#C62828")));
+            btnFichajeNfc.setText("Fichar Salida NFC");
+        } else {
+            btnFichajeGps.setText("Fichar Entrada GPS");
+            btnFichajeGps.setBackgroundTintList(
+                    android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#2E7D32")));
+            btnFichajeNfc.setText("Fichar Entrada NFC");
+        }
     }
 
     private void showNfcWaitingDialog(String action) {
@@ -363,10 +399,8 @@ public class FichajeFragment extends Fragment {
     }
 
     private void setButtonsEnabled(boolean enabled) {
-        btnEntradaGps.setEnabled(enabled);
-        btnSalidaGps.setEnabled(enabled);
-        btnEntradaNfc.setEnabled(enabled);
-        btnSalidaNfc.setEnabled(enabled);
+        btnFichajeGps.setEnabled(enabled);
+        btnFichajeNfc.setEnabled(enabled);
     }
 
     private void logout() {
@@ -375,6 +409,22 @@ public class FichajeFragment extends Fragment {
         Intent intent = new Intent(requireContext(), LoginActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Registrar receptor de cambios de estado NFC
+        IntentFilter filter = new IntentFilter(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED);
+        requireContext().registerReceiver(nfcStateReceiver, filter);
+        // Re-comprobar por si el usuario activó NFC desde ajustes
+        checkNfcAvailability();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        requireContext().unregisterReceiver(nfcStateReceiver);
     }
 
     @Override

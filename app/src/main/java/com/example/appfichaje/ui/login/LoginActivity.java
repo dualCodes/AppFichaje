@@ -3,6 +3,7 @@ package com.example.appfichaje.ui.login;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -33,7 +34,13 @@ public class LoginActivity extends AppCompatActivity {
 
         loginViewModel.getLoginResult().observe(this, loginResponseResource -> {
             switch (loginResponseResource.status) {
+                case LOADING:
+                    binding.progressLogin.setVisibility(View.VISIBLE);
+                    binding.loginButton.setEnabled(false);
+                    break;
                 case SUCCESS:
+                    binding.progressLogin.setVisibility(View.GONE);
+                    binding.loginButton.setEnabled(true);
                     LoginResponse data = loginResponseResource.data;
                     if (data != null && data.getAccessToken() != null) {
                         // Save token
@@ -55,9 +62,9 @@ public class LoginActivity extends AppCompatActivity {
                     }
                     break;
                 case ERROR:
+                    binding.progressLogin.setVisibility(View.GONE);
+                    binding.loginButton.setEnabled(true);
                     Toast.makeText(this, loginResponseResource.message, Toast.LENGTH_SHORT).show();
-                    break;
-                case LOADING:
                     break;
             }
         });

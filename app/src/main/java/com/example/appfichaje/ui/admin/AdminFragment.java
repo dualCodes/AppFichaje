@@ -30,7 +30,10 @@ import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
 import org.osmdroid.views.overlay.Polygon;
+import org.osmdroid.views.overlay.MapEventsOverlay;
+import org.osmdroid.events.MapEventsReceiver;
 import com.google.android.material.button.MaterialButtonToggleGroup;
+import android.widget.SeekBar;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -299,57 +302,141 @@ public class AdminFragment extends Fragment {
     }
 
     private void showEditarRadioDialog() {
-        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
-        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        layout.setPadding(pad, pad, pad, 0);
+        View dialogView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_editar_centro, null);
 
-        EditText etRadio = new EditText(requireContext());
-        etRadio.setHint("Radio (metros)");
-        etRadio.setInputType(InputType.TYPE_CLASS_NUMBER);
-        if (centroActual != null && centroActual.getRadio() != null) {
-            etRadio.setText(String.valueOf(centroActual.getRadio()));
-        }
+        org.osmdroid.views.MapView dialogMap = dialogView.findViewById(R.id.map_dialog);
+        TextView tvCoordsDialog = dialogView.findViewById(R.id.tv_coords_dialog);
+        SeekBar seekbarRadio = dialogView.findViewById(R.id.seekbar_radio);
+        EditText etRadio = dialogView.findViewById(R.id.et_radio_dialog);
 
-        EditText etLat = new EditText(requireContext());
-        etLat.setHint("Latitud");
-        etLat.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
-        if (centroActual != null && centroActual.getLat() != null) {
-            etLat.setText(String.valueOf(centroActual.getLat()));
-        }
+        // --- Mapa ---
+        Configuration.getInstance().setUserAgentValue(requireContext().getPackageName());
+        dialogMap.setTileSource(TileSourceFactory.MAPNIK);
+        dialogMap.setMultiTouchControls(true);
 
-        EditText etLon = new EditText(requireContext());
-        etLon.setHint("Longitud");
-        etLon.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
-        if (centroActual != null && centroActual.getLon() != null) {
-            etLon.setText(String.valueOf(centroActual.getLon()));
-        }
+        double initLat = centroActual != null && centroActual.getLat() != null ? centroActual.getLat() : 40.4168;
+        double initLon = centroActual != null && centroActual.getLon() != null ? centroActual.getLon() : -3.7038;
+        final double[] selectedLatLon = {initLat, initLon};
 
-        layout.addView(etRadio);
-        layout.addView(etLat);
-        layout.addView(etLon);
+        // Slider exponencial (1-50000 m)
+        final int MAX_P = 1000;
+        seekbarRadio.setMax(MAX_P);
+        int initRadio = centroActual != null && centroActual.getRadio() != null
+                ? Math.max(1, Math.min(50000, centroActual.getRadio())) : 100;
+        final int[] currentRadio = {initRadio};
+        etRadio.setText(String.valueOf(initRadio));
+        seekbarRadio.setProgress(radioToProgress(initRadio, MAX_P));
 
-        new AlertDialog.Builder(requireContext())
-                .setTitle("Editar centro de trabajo")
-                .setView(layout)
+        // Helper: redibuja marcador + círculo
+        final Marker[] selMarker = {new Marker(dialogMap)};
+        selMarker[0].setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        final Runnable[] redrawMap = {null};
+        redrawMap[0] = () -> {
+            dialogMap.getOverlays().removeIf(o -> o instanceof Marker || o instanceof Polygon);
+            GeoPoint p = new GeoPoint(selectedLatLon[0], selectedLatLon[1]);
+            selMarker[0].setPosition(p);
+            dialogMap.getOverlays().add(selMarker[0]);
+            if (currentRadio[0] > 0) {
+                Polygon circle = new Polygon();
+                circle.setPoints(Polygon.pointsAsCircle(p, currentRadio[0]));
+                circle.setStrokeColor(0xFF1976D2);
+                circle.setFillColor(0x221976D2);
+                circle.setStrokeWidth(2f);
+                dialogMap.getOverlays().add(circle);
+            }
+            dialogMap.invalidate();
+        };
+
+        dialogMap.getController().setZoom(15.0);
+        dialogMap.getController().setCenter(new GeoPoint(initLat, initLon));
+        tvCoordsDialog.setText(String.format(Locale.getDefault(), "Lat: %.6f  Lon: %.6f", initLat, initLon));
+
+        MapEventsOverlay tapOverlay = new MapEventsOverlay(new MapEventsReceiver() {
+            @Override
+            public boolean singleTapConfirmedHelper(GeoPoint p) {
+                selectedLatLon[0] = p.getLatitude();
+                selectedLatLon[1] = p.getLongitude();
+                tvCoordsDialog.setText(String.format(Locale.getDefault(),
+                        "Lat: %.6f  Lon: %.6f", p.getLatitude(), p.getLongitude()));
+                redrawMap[0].run();
+                return true;
+            }
+            @Override public boolean longPressHelper(GeoPoint p) { return false; }
+        });
+        dialogMap.getOverlays().add(0, tapOverlay);
+        redrawMap[0].run();
+
+        final boolean[] updating = {false};
+
+        seekbarRadio.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar sb, int progress, boolean fromUser) {
+                if (!fromUser || updating[0]) return;
+                updating[0] = true;
+                int v = progressToRadio(progress, MAX_P);
+                currentRadio[0] = v;
+                String val = String.valueOf(v);
+                etRadio.setText(val);
+                etRadio.setSelection(val.length());
+                redrawMap[0].run();
+                updating[0] = false;
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) {}
+            @Override public void onStopTrackingTouch(SeekBar sb) {}
+        });
+
+        etRadio.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+                if (updating[0]) return;
+                try {
+                    int v = Math.max(1, Math.min(50000, Integer.parseInt(s.toString().trim())));
+                    currentRadio[0] = v;
+                    updating[0] = true;
+                    seekbarRadio.setProgress(radioToProgress(v, MAX_P));
+                    updating[0] = false;
+                    redrawMap[0].run();
+                } catch (NumberFormatException ignored) {}
+            }
+        });
+
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                .setTitle("Modificar centro de trabajo")
+                .setView(dialogView)
                 .setPositiveButton("Guardar", (d, w) -> {
-                    String valRadio = etRadio.getText().toString().trim();
-                    String valLat   = etLat.getText().toString().trim();
-                    String valLon   = etLon.getText().toString().trim();
-                    if (valRadio.isEmpty()) {
-                        Toast.makeText(requireContext(), "El radio no puede estar vacío", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+                    int radio;
                     try {
-                        int radio = Integer.parseInt(valRadio);
-                        Double lat = valLat.isEmpty() ? null : Double.parseDouble(valLat);
-                        Double lon = valLon.isEmpty() ? null : Double.parseDouble(valLon);
-                        adminViewModel.actualizarRadio(radio, lat, lon);
+                        radio = Math.max(1, Math.min(50000,
+                                Integer.parseInt(etRadio.getText().toString().trim())));
                     } catch (NumberFormatException e) {
-                        Toast.makeText(requireContext(), "Valores numéricos inválidos", Toast.LENGTH_SHORT).show();
+                        radio = progressToRadio(seekbarRadio.getProgress(), MAX_P);
                     }
+                    adminViewModel.actualizarRadio(radio, selectedLatLon[0], selectedLatLon[1]);
                 })
                 .setNegativeButton("Cancelar", null)
-                .show();
+                .create();
+
+        dialog.setOnShowListener(d -> dialogMap.onResume());
+        dialog.setOnDismissListener(d -> {
+            dialogMap.onPause();
+            dialogMap.onDetach();
+        });
+
+        dialog.show();
+    }
+
+    private static int progressToRadio(int progress, int maxProgress) {
+        if (progress <= 0) return 1;
+        if (progress >= maxProgress) return 50000;
+        return (int) Math.round(Math.exp((double) progress / maxProgress * Math.log(50000)));
+    }
+
+    private static int radioToProgress(int radio, int maxProgress) {
+        if (radio <= 1) return 0;
+        if (radio >= 50000) return maxProgress;
+        return (int) Math.round(Math.log(radio) / Math.log(50000) * maxProgress);
     }
 }

@@ -84,20 +84,11 @@
                     android:layout_marginBottom="12dp" />
 
                 <Button
-                    android:id="@+id/btn_entrada_gps"
+                    android:id="@+id/btn_fichaje_gps"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
                     android:backgroundTint="#2E7D32"
                     android:text="Fichar Entrada GPS"
-                    android:textColor="@android:color/white" />
-
-                <Button
-                    android:id="@+id/btn_salida_gps"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="#C62828"
-                    android:text="Fichar Salida GPS"
                     android:textColor="@android:color/white" />
 
             </LinearLayout>
@@ -136,20 +127,11 @@
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
                 <Button
-                    android:id="@+id/btn_entrada_nfc"
+                    android:id="@+id/btn_fichaje_nfc"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
                     android:backgroundTint="#1565C0"
                     android:text="Fichar Entrada NFC"
-                    android:textColor="@android:color/white" />
-
-                <Button
-                    android:id="@+id/btn_salida_nfc"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="#4527A0"
-                    android:text="Fichar Salida NFC"
                     android:textColor="@android:color/white" />
 
             </LinearLayout>
